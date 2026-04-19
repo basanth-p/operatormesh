@@ -1,0 +1,32 @@
+name: Nex CI Monitor
+
+on:
+  workflow_run:
+    workflows: ["*"]
+    types: [completed]
+  deployment_status:
+
+jobs:
+  notify-nex-on-failure:
+    if: |
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'failure') ||
+      (github.event_name == 'deployment_status' &&
+       github.event.deployment_status.state == 'failure')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send failure to Nex
+        env:
+          NEX_TOKEN: ${{ secrets.NEX_APP_TOKEN }}
+        run: |
+          curl -X POST https://nex.bbuilds.dev/api/webhook/ci-failure \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $NEX_TOKEN" \
+            -d '{
+              "repo": "${{ github.repository }}",
+              "event": "${{ github.event_name }}",
+              "workflow": "${{ github.event.workflow_run.name }}",
+              "run_id": "${{ github.event.workflow_run.id }}",
+              "sha": "${{ github.sha }}",
+              "branch": "${{ github.ref_name }}"
+            }'
